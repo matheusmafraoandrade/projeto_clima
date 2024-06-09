@@ -1,87 +1,82 @@
 import numpy as np
-import requests
 import streamlit as st
-
-def get_cities(search_string):
-    url = 'https://geocoding-api.open-meteo.com/v1/search'
-    params = { 'name': search_string, 'count': 5, 'language': 'pt', format: 'json' }
-    response = requests.get(url, params=params)
-    return response.json()
-
-def list_cities(search_string):
-    cidades = []
-    coordenadas = []
-    
-    data = get_cities(search_string)['results']
-    for city in range(len(data)):
-        name = data[city]['name']
-        region = data[city]['admin1']
-        country = data[city]['country']
-        
-        cidade = f"{name}, {region}, {country}"
-        lat = data[city]['latitude']
-        lon = data[city]['longitude']
-        
-        cidades.append(cidade)
-        coordenadas.append((lat, lon))
-    
-    result = list(zip(cidades, coordenadas))
-    return result
-
-def get_weather(lat, lon, start_date, end_date):
-    url = 'https://archive-api.open-meteo.com/v1/era5'
-    info = ['temperature_2m_max', 'temperature_2m_min', 'rain_sum', 'snowfall_sum', 'sunshine_duration']
-    params = {
-        'latitude': lat,
-        'longitude': lon,
-        'start_date': start_date,
-        'end_date': end_date,
-        'daily': info }
-    response = requests.get(url, params=params)
-    return response.json()
+from datetime import datetime
+from utils.time_tools import estimated_time, convert_to_hour_minutes, convert_date_format
+from utils.api_requests import get_cities, get_weather
 
 @st.experimental_fragment()
-def display_cities(searched_city):
+def display_city_options(searched_city):
     if searched_city:
-        resultado = list_cities(searched_city)
+        resultado = get_cities(searched_city)
         selected_city = st.radio("Cidades", options=[item[0] for item in resultado])
         
         globals()['lat'] = dict(resultado)[selected_city][0]
         globals()['lon'] = dict(resultado)[selected_city][1]
         
         return selected_city
+
+@st.experimental_fragment()
+def temperature(daily_data):
+    max_temp = np.max(np.array(daily_data['Máxima'])).round()
+    min_temp = np.min(np.array(daily_data['Mínima'])).round()
+    avg_temp = np.mean(np.array([daily_data['Máxima'], daily_data['Mínima']])).round()
+    
+    st.markdown("#### Temperatura")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Máxima", f"{max_temp}ºC")
+    col2.metric("Mínima", f"{min_temp}ºC")
+    col3.metric("Média", f"{avg_temp}ºC")
+    
+    st.line_chart(data=daily_data, x='Data', y=['Máxima', 'Mínima'], color=['#911010', '#103b91'])
     
 @st.experimental_fragment()
-def show_data():
-    tempo = get_weather(lat, lon, start_date, end_date)
+def conditions(daily_data):
+    avg_rain = np.mean(np.array(daily_data['Chuva_mm'])).round()
+    avg_snow = np.mean(np.array(daily_data['Neve_cm'])).round()
+    avg_prec = np.mean(np.array(daily_data['Precipitação_h'])).round()
+    avg_wind = np.mean(np.array(daily_data['Vento_max'])).round()
     
-    max = np.max(np.array(tempo['daily']['temperature_2m_max'])).round(2)
-    min = np.min(np.array(tempo['daily']['temperature_2m_min'])).round(2)
-    avg_rain = np.mean(np.array(tempo['daily']['rain_sum'])).round(2)
+    st.markdown("#### Condições diárias")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Horas de chuva", f"{avg_prec} h")
+    col2.metric("Chuva", f"{avg_rain} mm")
+    col3.metric("Neve", f"{avg_snow} cm")
+    col4.metric("Vento", f"{avg_wind} km/h")
     
-    with st.container():
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Máxima", f"{max}ºC")
-        col2.metric("Mínima", f"{min}ºC")
-        col3.metric("Chuva", f"{avg_rain:.2f} mm")
-        
-        df = st.dataframe(tempo['daily'])
+@st.experimental_fragment()
+def sunlight(daily_data):
+    avg_sun = np.mean(np.array(daily_data['Horas_sol'])).round()
+    sunrise = estimated_time(list(daily_data['Nascer_do_sol']))
+    sunset = estimated_time(list(daily_data['Por_do_sol']))
+    
+    st.markdown("#### Luz do sol")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Horas de sol", f"{avg_sun} h")
+    col2.metric("Nascer do sol aproximado", sunrise)
+    col3.metric("Pôr do sol aproximado", sunset)
 
-st.title("Weather in cities")
+st.title(f"Dados climáticos")
 
 lat = {}
 lon = {}
 
 with st.sidebar:
     searched_city = st.text_input("Pesquise uma cidade", key="searched_city")
-    display_cities(searched_city)
+    selected_city = display_city_options(searched_city)
     
     start_date = st.date_input("Escolha uma data inicial", value=None)
     end_date = st.date_input("Escolha uma data final", value=None) 
 
 with st.container():
     if st.sidebar.button(label="Buscar"):
-        show_data()
+        daily_data = get_weather(lat, lon, start_date, end_date)
+        st.markdown(f"##### Cidade: {selected_city}")
+        st.markdown(f"##### Período: {convert_date_format(start_date)} - {convert_date_format(end_date)}")
+        
+        temperature(daily_data)
+        conditions(daily_data)
+        sunlight(daily_data)
+        st.dataframe(daily_data)
     else:
         st.write("Escolha uma cidade e data para começar!")
 
