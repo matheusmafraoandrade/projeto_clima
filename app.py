@@ -2,50 +2,25 @@ import numpy as np
 import requests
 import streamlit as st
 
-#cities_api_key = "6kJtGwr4zOzUffuJRSXZwhEhVG0j"
-#weather_api_key = "aabc6ce5b9f965907122e09b02b1ac95"
-
-@st.experimental_fragment()
-def get_token():
-    cities_api_key = "9fxIgrGxNnIChovLLn1yDll05cRT08ug"
-    cities_secret = "HyQlPubKbHkUAtpm"
-    
-    token_url = "https://test.api.amadeus.com/v1/security/oauth2/token"
-    token_headers = { "Content-Type": "application/x-www-form-urlencoded" }
-    token_data = {
-        "grant_type": "client_credentials",
-        "client_id": cities_api_key,
-        "client_secret": cities_secret
-    }
-    response = requests.post(token_url, headers=token_headers, data=token_data)
-    token = response.json()['access_token']
-    return token
-
-@st.experimental_fragment()
 def get_cities(search_string):
-    token = get_token()
-    url = 'https://test.api.amadeus.com/v1/reference-data/locations/cities'
-    headers = { 'accept': 'application/vnd.amadeus+json', 'Authorization': f'Bearer {token}' }
-    params = { 'keyword': search_string, 'max': 5 }
-    response = requests.get(url, headers=headers, params=params)
+    url = 'https://geocoding-api.open-meteo.com/v1/search'
+    params = { 'name': search_string, 'count': 5, 'language': 'pt', format: 'json' }
+    response = requests.get(url, params=params)
     return response.json()
 
-@st.experimental_fragment()
 def list_cities(search_string):
     cidades = []
     coordenadas = []
     
-    data = get_cities(search_string)['data']
-    for loc in range(len(data)):
-        nome = data[loc]['name']
-        if 'ZZZ' in data[loc]['address']['stateCode']:
-            regiao = data[loc]['address']['countryCode']
-        else:
-            regiao = data[loc]['address']['stateCode']
+    data = get_cities(search_string)['results']
+    for city in range(len(data)):
+        name = data[city]['name']
+        region = data[city]['admin1']
+        country = data[city]['country']
         
-        cidade = f"{nome}, {regiao}"
-        lat = data[loc]['geoCode']['latitude']
-        lon = data[loc]['geoCode']['longitude']
+        cidade = f"{name}, {region}, {country}"
+        lat = data[city]['latitude']
+        lon = data[city]['longitude']
         
         cidades.append(cidade)
         coordenadas.append((lat, lon))
@@ -53,7 +28,6 @@ def list_cities(search_string):
     result = list(zip(cidades, coordenadas))
     return result
 
-@st.experimental_fragment()
 def get_weather(lat, lon, start_date, end_date):
     url = 'https://archive-api.open-meteo.com/v1/era5'
     info = ['temperature_2m_max', 'temperature_2m_min', 'rain_sum', 'snowfall_sum', 'sunshine_duration']
@@ -65,11 +39,6 @@ def get_weather(lat, lon, start_date, end_date):
         'daily': info }
     response = requests.get(url, params=params)
     return response.json()
-
-st.title("Weather in cities")
-
-lat = {}
-lon = {}
 
 @st.experimental_fragment()
 def display_cities(searched_city):
@@ -98,6 +67,11 @@ def show_data():
         
         df = st.dataframe(tempo['daily'])
 
+st.title("Weather in cities")
+
+lat = {}
+lon = {}
+
 with st.sidebar:
     searched_city = st.text_input("Pesquise uma cidade", key="searched_city")
     display_cities(searched_city)
@@ -105,9 +79,10 @@ with st.sidebar:
     start_date = st.date_input("Escolha uma data inicial", value=None)
     end_date = st.date_input("Escolha uma data final", value=None) 
 
-if st.sidebar.button(label="Buscar"):
-    show_data()
-else:
-    st.write("Escolha uma cidade e data para começar!")
+with st.container():
+    if st.sidebar.button(label="Buscar"):
+        show_data()
+    else:
+        st.write("Escolha uma cidade e data para começar!")
 
 
