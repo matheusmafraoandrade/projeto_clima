@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import pandas as pd
 
 def time_to_seconds(time_str):
     h, m = map(int, time_str.split(':'))

@@ -1,4 +1,5 @@
 import requests
+import pandas as pd
 from utils.time_tools import convert_to_hour_minutes
 
 def get_cities(search_string):
@@ -10,11 +11,15 @@ def get_cities(search_string):
     cidades = []
     coordenadas = []
     for city in range(len(data)):
-        name = data[city]['name']
-        region = data[city]['admin1']
-        country = data[city]['country']
-        
-        cidade = f"{name}, {region}, {country}"
+        try:
+            name = data[city]['name']
+            region = data[city]['admin1']
+            country = data[city]['country']
+            cidade = f"{name}, {region}, {country}"
+        except KeyError:
+            name = data[city]['name']
+            country = data[city]['country']
+            cidade = f"{name}, {country}"
         lat = data[city]['latitude']
         lon = data[city]['longitude']
         
@@ -52,4 +57,9 @@ def get_weather(lat, lon, start_date, end_date):
     daily_data['Nascer_do_sol'] = [convert_to_hour_minutes(x) for x in daily_data.pop('sunrise')]
     daily_data['Por_do_sol'] = [convert_to_hour_minutes(x) for x in daily_data.pop('sunset')]
     
-    return daily_data
+    df = pd.DataFrame(daily_data)
+    df['Ano'] = pd.to_datetime(df['Data']).dt.year
+    df['Mes'] = pd.to_datetime(df['Data']).dt.month    
+    df['Data'] = pd.to_datetime(df['Data']).dt.date
+    
+    return df
