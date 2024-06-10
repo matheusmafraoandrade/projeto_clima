@@ -63,3 +63,44 @@ def get_weather(lat, lon, start_date, end_date):
     df['Data'] = pd.to_datetime(df['Data']).dt.date
     
     return df
+
+def get_forecast(lat, lon, start_date, end_date):
+    url = 'https://ensemble-api.open-meteo.com/v1/ensemble'
+    info = ['temperature_2m', 'apparent_temperature',
+            'precipitation', 'rain', 'snowfall', 'wind_speed_10m']
+    params = {
+        'latitude': lat,
+        'longitude': lon,
+        'start_date': start_date,
+        'end_date': end_date,
+        'timezone': 'auto',
+        'hourly': info,
+        'models': 'gfs05'}
+    response = requests.get(url, params=params)
+    hourly_data =  response.json()['hourly']
+    hourly_data['Data'] = hourly_data['time']
+    hourly_data['Hora'] = hourly_data.pop('time')
+    
+    hourly_data['Temperatura'] = hourly_data.pop('temperature_2m')
+    hourly_data['Sensação_térmica'] = hourly_data.pop('apparent_temperature')
+    
+    hourly_data['Precipitação_h'] = hourly_data.pop('precipitation')
+    hourly_data['Chuva_mm'] = hourly_data.pop('rain')
+    hourly_data['Neve_cm'] = hourly_data.pop('snowfall')
+    hourly_data['Vento'] = hourly_data.pop('wind_speed_10m')
+    
+    df = pd.DataFrame(hourly_data)
+    df = df.dropna(axis=0, how='any')
+    df['Ano'] = pd.to_datetime(df['Data']).dt.year
+    df['Mes'] = pd.to_datetime(df['Data']).dt.month
+    df['Dia'] = pd.to_datetime(df['Data']).dt.day
+    df['Horário'] = pd.to_datetime(df['Data']).dt.hour
+    df['Data'] = pd.to_datetime(df['Data']).dt.date
+    
+    keep_columns = ['Ano', 'Mes', 'Dia', 'Horário', 'Data', 'Hora',
+                    'Temperatura', 'Sensação_térmica',
+                    'Precipitação_h', 'Chuva_mm', 'Neve_cm', 'Vento']
+    drop_columns = list(set(df.columns) - set(keep_columns))
+    df = df.drop(columns=drop_columns)
+    
+    return df

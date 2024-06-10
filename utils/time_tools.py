@@ -18,5 +18,8 @@ def estimated_time(times):
 def convert_to_hour_minutes(date_str):
     return datetime.strptime(date_str, '%Y-%m-%dT%H:%M').strftime('%H:%M')
 
-def convert_date_format(date_str):
+def convert_to_date(date_str):
+    return datetime.strptime(date_str, '%Y-%m-%dT%H:%M').strftime('%d/%m/%Y')
+
+def change_date_format(date_str):
     return date_str.strftime('%d/%m/%Y')

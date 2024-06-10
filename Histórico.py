@@ -1,7 +1,6 @@
 import numpy as np
 import streamlit as st
-from datetime import datetime
-from utils.time_tools import estimated_time, convert_date_format
+from utils.time_tools import estimated_time, change_date_format
 from utils.api_requests import get_cities, get_weather
 from utils.make_charts import make_chart
 
@@ -10,11 +9,12 @@ def display_city_options(searched_city):
     if searched_city:
         resultado = get_cities(searched_city)
         selected_city = st.radio("Cidades", options=[item[0] for item in resultado])
+        lat = dict(resultado)[selected_city][0]
+        lon = dict(resultado)[selected_city][1]
         
-        globals()['lat'] = dict(resultado)[selected_city][0]
-        globals()['lon'] = dict(resultado)[selected_city][1]
+        final_result = [selected_city, lat, lon]
         
-        return selected_city
+        return final_result
 
 @st.experimental_fragment()
 def temperature(data, rangebreaks):
@@ -32,6 +32,7 @@ def temperature(data, rangebreaks):
     st.plotly_chart(
         make_chart(type='line',
                    data=data,
+                   x='Data',
                    y=['Máxima', 'Mínima'],
                    ylabel='ºC',
                    color=['#911010', '#103b91'],
@@ -56,6 +57,7 @@ def conditions(data, rangebreaks):
     st.plotly_chart(
         make_chart(type='line',
                    data=data,
+                   x='Data',
                    y=['Chuva_mm'],
                    ylabel='Volume',
                    color=['#103b91'],
@@ -109,27 +111,35 @@ def build_dashboard(data):
 def main_container():
     daily_data = get_weather(lat, lon, start_date, end_date)
     st.markdown(f"**Cidade:** {selected_city}")
-    st.markdown(f"**Período:** {convert_date_format(start_date)} - {convert_date_format(end_date)}")
+    st.markdown(f"**Período:** {change_date_format(start_date)} - {change_date_format(end_date)}")
     st.divider()
 
     build_dashboard(daily_data)
 
-st.title(f"Dados climáticos")
+st.set_page_config(
+    page_title="Dados históricos",
+    page_icon="🌡️",
+)
 
-lat = {}
-lon = {}
+st.title(f"Dados climáticos")
 
 with st.sidebar:
     searched_city = st.text_input("Pesquise uma cidade", key="searched_city")
-    selected_city = display_city_options(searched_city)
+    city_results = display_city_options(searched_city)
     
-    start_date = st.date_input("Escolha uma data inicial", value=None, format="DD/MM/YYYY")
-    end_date = st.date_input("Escolha uma data final", value=None, format="DD/MM/YYYY") 
+    if city_results:
+        selected_city = city_results[0]
+        lat = city_results[1]
+        lon = city_results[2]
+    
+    col1, col2 = st.columns(2)
+    start_date = col1.date_input("Data inicial", value=None, format="DD/MM/YYYY")
+    end_date = col2.date_input("Data final", value=None, format="DD/MM/YYYY") 
 
 if st.sidebar.button(label="Buscar"):
     main_container()
 else:
-    st.write("Escolha uma cidade e data para começar!")
+    st.write("Escolha uma cidade e o período para começar!")
 
 
 
