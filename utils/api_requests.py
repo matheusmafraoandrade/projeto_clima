@@ -78,7 +78,7 @@ def get_forecast(lat, lon, start_date, end_date):
         'models': 'gfs05'}
     response = requests.get(url, params=params)
     hourly_data =  response.json()['hourly']
-    hourly_data['Data'] = hourly_data['time']
+    hourly_data['time'] = pd.to_datetime(hourly_data['time'], format='%Y-%m-%dT%H:%M')
     hourly_data['Hora'] = hourly_data.pop('time')
     
     hourly_data['Temperatura'] = hourly_data.pop('temperature_2m')
@@ -91,11 +91,11 @@ def get_forecast(lat, lon, start_date, end_date):
     
     df = pd.DataFrame(hourly_data)
     df = df.dropna(axis=0, how='any')
-    df['Ano'] = pd.to_datetime(df['Data']).dt.year
-    df['Mes'] = pd.to_datetime(df['Data']).dt.month
-    df['Dia'] = pd.to_datetime(df['Data']).dt.day
-    df['Horário'] = pd.to_datetime(df['Data']).dt.hour
-    df['Data'] = pd.to_datetime(df['Data']).dt.date
+    df['Ano'] = pd.to_datetime(df['Hora']).dt.year
+    df['Mes'] = pd.to_datetime(df['Hora']).dt.month
+    df['Dia'] = pd.to_datetime(df['Hora']).dt.day
+    df['Horário'] = pd.to_datetime(df['Hora']).dt.hour
+    df['Data'] = pd.to_datetime(df['Hora']).dt.date
     
     keep_columns = ['Ano', 'Mes', 'Dia', 'Horário', 'Data', 'Hora',
                     'Temperatura', 'Sensação_térmica',
